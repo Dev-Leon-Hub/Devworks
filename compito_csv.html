@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anagrafica CSV</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f2f2f2;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    #container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0px 2px 6px rgba(0,0,0,0.2);
+    }
+
+    .card h3 {
+      margin: 0;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .card p {
+      margin: 5px 0;
+      color: #555;
+    }
+
+    input {
+      display: block;
+      margin: 20px auto;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Anagrafica da CSV</h1>
+
+  <input type="file" id="fileInput" accept=".csv">
+
+  <div id="container"></div>
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const container = document.getElementById("container");
+
+    fileInput.addEventListener("change", function () {
+      const file = fileInput.files[0];
+
+      if (!file) {
+        alert("Nessun file selezionato!");
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = function (e) {
+        const testoCSV = e.target.result;
+        const dati = parseCSV(testoCSV);
+
+        container.innerHTML = "";
+
+        creaCardRicorsivo(dati, 0);
+      };
+
+      reader.readAsText(file);
+    });
+
+    function parseCSV(testo) {
+      const righe = testo.trim().split("\n");
+      const intestazioni = righe[0].split(",");
+
+      let persone = [];
+
+      for (let i = 1; i < righe.length; i++) {
+        const valori = righe[i].split(",");
+
+        let persona = {};
+
+        for (let j = 0; j < intestazioni.length; j++) {
+          persona[intestazioni[j].trim()] = valori[j].trim();
+        }
+
+        persone.push(persona);
+      }
+
+      return persone;
+    }
+
+    function creaCardRicorsivo(persone, indice) {
+      if (indice >= persone.length) {
+        return;
+      }
+
+      const persona = persone[indice];
+
+      const card = document.createElement("div");
+      card.classList.add("card");
+
+      const titolo = document.createElement("h3");
+      titolo.textContent = (persona.Nome || "") + " " + (persona.Cognome || "");
+      card.appendChild(titolo);
+
+      for (let chiave in persona) {
+        if (chiave !== "Nome" && chiave !== "Cognome") {
+          const p = document.createElement("p");
+          p.textContent = chiave + ": " + persona[chiave];
+          card.appendChild(p);
+        }
+      }
+
+      container.appendChild(card);
+
+      creaCardRicorsivo(persone, indice + 1);
+    }
+  </script>
+
+</body>
+</html>
