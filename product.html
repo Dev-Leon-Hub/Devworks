@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dettaglio prodotto</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header id="siteHeader">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <img id="headerLogo" src="" alt="Logo" class="header-logo" style="display:none;">
+    <h1 id="shopTitle">Negozio</h1>
+  </div>
+  <nav>
+    <a href="index.html">📦 Catalogo</a>
+    <a href="cart.html" class="cart-badge">🛒 Carrello (<span id="cartCount">0</span>)</a>
+  </nav>
+</header>
+
+<div class="container">
+  <a href="index.html" class="back-link">← Torna al catalogo</a>
+
+  <!-- Dettaglio prodotto -->
+  <div id="productDetail" class="product-detail" style="display:none;">
+    <img id="prodImg" src="" alt="">
+
+    <div class="product-info">
+      <div class="brand" id="prodMarca"></div>
+      <h2 id="prodModello"></h2>
+      <div class="price" id="prodPrezzo"></div>
+      <div class="desc" id="prodDescrizione"></div>
+
+      <!-- Campi extra del CSV -->
+      <div id="extraFields" style="margin-bottom:20px;"></div>
+
+      <!-- Quantità + Aggiungi -->
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+        <div class="qty-ctrl">
+          <label for="qty" style="font-weight:600;white-space:nowrap;">Quantità:</label>
+          <button class="qty-btn" onclick="cambiaQty(-1)">−</button>
+          <input type="number" id="qty" value="1" min="1" max="99">
+          <button class="qty-btn" onclick="cambiaQty(1)">+</button>
+        </div>
+        <button class="btn btn-primary" onclick="aggiungiAlCarrello()">
+          🛒 Aggiungi al carrello
+        </button>
+      </div>
+
+      <!-- Conferma aggiunta -->
+      <div id="addedMsg" class="alert alert-success" style="display:none;">
+        ✅ Prodotto aggiunto al carrello!
+        <a href="cart.html" style="color:inherit;font-weight:700;">Vai al carrello →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prodotto non trovato -->
+  <div id="notFound" class="empty-state" style="display:none;">
+    <h3>Prodotto non trovato</h3>
+    <p style="margin-bottom:20px;">Torna al catalogo e seleziona un prodotto.</p>
+    <a href="index.html" class="btn btn-primary">Vai al catalogo</a>
+  </div>
+</div>
+
+<script>
+  var prodottoCorrente = null;
+
+  window.onload = function() {
+    var configStr   = localStorage.getItem('shopConfig');
+    var productsStr = localStorage.getItem('shopProducts');
+    var idx         = localStorage.getItem('selectedProduct');
+
+    if (!configStr || !productsStr || idx === null) {
+      document.getElementById('notFound').style.display = 'block';
+      return;
+    }
+
+    var config   = JSON.parse(configStr);
+    var prodotti = JSON.parse(productsStr);
+    prodottoCorrente = prodotti[parseInt(idx)];
+
+    if (!prodottoCorrente) {
+      document.getElementById('notFound').style.display = 'block';
+      return;
+    }
+
+    /* Applica configurazione grafica */
+    document.title = (prodottoCorrente.modello || 'Prodotto') + ' — ' + config.name;
+    document.getElementById('shopTitle').textContent = config.name;
+    document.documentElement.style.setProperty('--primary', config.color || '#2563eb');
+    document.getElementById('siteHeader').style.background = config.color || '#2563eb';
+
+    if (config.logo) {
+      var logo = document.getElementById('headerLogo');
+      logo.src = config.logo;
+      logo.style.display = 'block';
+    }
+
+    aggiornaContatore();
+
+    /* Popola i dati del prodotto */
+    var imgEl = document.getElementById('prodImg');
+    imgEl.src = prodottoCorrente.immagine || 'https://via.placeholder.com/400x400?text=No+Image';
+    imgEl.alt = prodottoCorrente.modello  || '';
+    imgEl.onerror = function() {
+      this.src = 'https://via.placeholder.com/400x400?text=Immagine+non+disponibile';
+    };
+
+    document.getElementById('prodMarca').textContent      = prodottoCorrente.marca       || '';
+    document.getElementById('prodModello').textContent    = prodottoCorrente.modello     || '';
+    document.getElementById('prodPrezzo').textContent     = '€ ' + (parseFloat(prodottoCorrente.prezzo) || 0).toFixed(2);
+    document.getElementById('prodDescrizione').textContent = prodottoCorrente.descrizione || '';
+
+    /* Campi aggiuntivi (tutto ciò che non è nelle 5 colonne standard) */
+    var standard = ['marca', 'modello', 'descrizione', 'immagine', 'prezzo'];
+    var extra = document.getElementById('extraFields');
+    Object.keys(prodottoCorrente).forEach(function(chiave) {
+      if (standard.indexOf(chiave) === -1 && prodottoCorrente[chiave]) {
+        var div = document.createElement('div');
+        div.className = 'extra-field';
+        div.innerHTML = '<strong>' + capitalizza(chiave) + ':</strong> ' + esc(prodottoCorrente[chiave]);
+        extra.appendChild(div);
+      }
+    });
+
+    document.getElementById('productDetail').style.display = 'flex';
+  };
+
+  /* ── Controllo quantità ── */
+  function cambiaQty(delta) {
+    var input = document.getElementById('qty');
+    var val   = (parseInt(input.value) || 1) + delta;
+    if (val < 1)  val = 1;
+    if (val > 99) val = 99;
+    input.value = val;
+  }
+
+  /* ── Aggiungi al carrello ── */
+  function aggiungiAlCarrello() {
+    var qty  = parseInt(document.getElementById('qty').value) || 1;
+    var cart = JSON.parse(localStorage.getItem('shopCart') || '[]');
+
+    /* Se il prodotto è già nel carrello, aumenta la quantità */
+    var trovato = false;
+    cart.forEach(function(item) {
+      if (item.marca === prodottoCorrente.marca && item.modello === prodottoCorrente.modello) {
+        item.qty += qty;
+        trovato = true;
+      }
+    });
+
+    if (!trovato) {
+      var nuovoItem = {};
+      Object.keys(prodottoCorrente).forEach(function(k) { nuovoItem[k] = prodottoCorrente[k]; });
+      nuovoItem.qty = qty;
+      cart.push(nuovoItem);
+    }
+
+    localStorage.setItem('shopCart', JSON.stringify(cart));
+    aggiornaContatore();
+
+    /* Mostra messaggio di conferma */
+    document.getElementById('addedMsg').style.display = 'block';
+    setTimeout(function() {
+      document.getElementById('addedMsg').style.display = 'none';
+    }, 4000);
+  }
+
+  /* ── Contatore header ── */
+  function aggiornaContatore() {
+    var cart   = JSON.parse(localStorage.getItem('shopCart') || '[]');
+    var totale = 0;
+    cart.forEach(function(item) { totale += (item.qty || 0); });
+    document.getElementById('cartCount').textContent = totale;
+  }
+
+  function capitalizza(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>

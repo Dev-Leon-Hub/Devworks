@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurazione Negozio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <h1>⚙️ Configurazione Negozio</h1>
+  </div>
+</header>
+
+<div class="container">
+  <div class="ini-card">
+    <h2>Imposta la tua piattaforma</h2>
+    <p class="subtitle">Compila i campi qui sotto per configurare il negozio. Potrai tornare qui in qualsiasi momento.</p>
+
+    <!-- Nome negozio -->
+    <div class="form-group">
+      <label for="shopName">Nome del negozio *</label>
+      <input type="text" id="shopName" placeholder="Es. TechShop, Libreria Aurora, Moda Italia...">
+    </div>
+
+    <!-- Colore principale -->
+    <div class="form-group">
+      <label>Colore principale</label>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <input type="color" id="shopColor" value="#2563eb"
+          style="width:54px;height:42px;padding:2px;cursor:pointer;border:1.5px solid #e2e8f0;border-radius:8px;">
+        <span id="colorValue" style="font-family:monospace;color:#64748b;font-size:0.95rem;">#2563eb</span>
+        <span style="color:#64748b;font-size:0.85rem;">— Viene applicato all'intestazione, ai pulsanti e ai prezzi</span>
+      </div>
+    </div>
+
+    <!-- Logo -->
+    <div class="form-group">
+      <label for="shopLogo">URL Logo (opzionale)</label>
+      <input type="text" id="shopLogo" placeholder="https://esempio.com/logo.png">
+      <div class="form-hint">Lascia vuoto se non hai un logo.</div>
+    </div>
+
+    <!-- CSV -->
+    <div class="form-group">
+      <label>File CSV dei prodotti *</label>
+      <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="btn btn-outline" onclick="document.getElementById('csvFile').click()">
+          📂 Carica file .csv
+        </button>
+        <button class="btn btn-outline" onclick="caricaEsempio()">
+          📋 Carica dati di esempio
+        </button>
+        <input type="file" id="csvFile" accept=".csv,.txt" style="display:none">
+      </div>
+      <textarea id="csvContent"
+        placeholder="...oppure incolla qui il contenuto del CSV.
+
+Formato richiesto (prima riga = intestazione):
+marca,modello,descrizione,immagine,prezzo
+Nike,Air Max 90,Scarpa sportiva classica,https://...,89.99
+
+Puoi aggiungere altre colonne: verranno mostrate nella pagina prodotto."></textarea>
+      <div id="csvPreview" style="margin-top:6px;font-size:0.85rem;color:#16a34a;font-weight:600;"></div>
+    </div>
+
+    <!-- Errori -->
+    <div id="errorMsg" class="alert alert-warning" style="display:none;"></div>
+
+    <!-- Salva -->
+    <button class="btn btn-primary" onclick="salvaConfig()"
+      style="width:100%;padding:14px;font-size:1rem;margin-top:4px;">
+      💾 Salva e apri il negozio →
+    </button>
+
+    <!-- Link se già configurato -->
+    <div id="linkGiaConfig" style="display:none;text-align:center;margin-top:16px;">
+      <a href="index.html" style="color:var(--primary);font-size:0.9rem;font-weight:600;">
+        Il negozio è già configurato → vai al catalogo
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Live preview colore ── */
+  document.getElementById('shopColor').addEventListener('input', function() {
+    document.getElementById('colorValue').textContent = this.value;
+    document.documentElement.style.setProperty('--primary', this.value);
+  });
+
+  /* ── Caricamento file CSV ── */
+  document.getElementById('csvFile').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      document.getElementById('csvContent').value = ev.target.result;
+      aggiornaPreview(ev.target.result);
+    };
+    reader.readAsText(file, 'UTF-8');
+  });
+
+  /* ── Preview live ── */
+  document.getElementById('csvContent').addEventListener('input', function() {
+    aggiornaPreview(this.value);
+  });
+
+  function aggiornaPreview(testo) {
+    var righe = testo.trim().split('\n').filter(function(l) { return l.trim(); });
+    var n = righe.length > 1 ? righe.length - 1 : 0;
+    var el = document.getElementById('csvPreview');
+    el.textContent = n > 0 ? ('✅ ' + n + ' prodotti trovati') : '';
+  }
+
+  /* ── Dati di esempio ── */
+  function caricaEsempio() {
+    var sample = [
+      'marca,modello,descrizione,immagine,prezzo',
+      'Samsung,Galaxy S24,"Smartphone Android 6.2 pollici AMOLED con chip Exynos 2400",https://via.placeholder.com/400x400/1a73e8/ffffff?text=Galaxy+S24,799.99',
+      'Apple,iPhone 15,"Smartphone iOS con chip A16 Bionic e fotocamera da 48MP",https://via.placeholder.com/400x400/1c1c1e/ffffff?text=iPhone+15,999.00',
+      'Sony,WH-1000XM5,"Cuffie wireless over-ear con cancellazione attiva del rumore",https://via.placeholder.com/400x400/333333/ffffff?text=Sony+XM5,329.00',
+      'Logitech,MX Master 3S,"Mouse wireless ergonomico sensore 8K DPI e scroll MagSpeed",https://via.placeholder.com/400x400/0077b6/ffffff?text=MX+Master,99.99',
+      'Dell,XPS 15,"Laptop 15.6 pollici OLED Intel Core i7 32GB RAM 1TB SSD",https://via.placeholder.com/400x400/023e8a/ffffff?text=Dell+XPS+15,1499.00',
+      'Jabra,Elite 8 Active,"Auricolari true wireless sportivi impermeabili IP68",https://via.placeholder.com/400x400/e63946/ffffff?text=Jabra+Elite,199.00'
+    ].join('\n');
+    document.getElementById('csvContent').value = sample;
+    aggiornaPreview(sample);
+  }
+
+  /* ── Parser CSV ── */
+  function dividiRiga(riga) {
+    var risultato = [];
+    var corrente = '';
+    var inVirgolette = false;
+    for (var i = 0; i < riga.length; i++) {
+      var c = riga[i];
+      if (c === '"') {
+        inVirgolette = !inVirgolette;
+      } else if (c === ',' && !inVirgolette) {
+        risultato.push(corrente);
+        corrente = '';
+      } else {
+        corrente += c;
+      }
+    }
+    risultato.push(corrente);
+    return risultato;
+  }
+
+  function parseCSV(testo) {
+    var righe = testo.trim().split('\n');
+    var intestazioni = dividiRiga(righe[0]).map(function(h) {
+      return h.trim().replace(/^"|"$/g, '');
+    });
+    var prodotti = [];
+    for (var i = 1; i < righe.length; i++) {
+      var riga = righe[i].trim();
+      if (!riga) continue;
+      var valori = dividiRiga(riga);
+      var obj = {};
+      intestazioni.forEach(function(h, idx) {
+        obj[h] = (valori[idx] || '').trim().replace(/^"|"$/g, '');
+      });
+      prodotti.push(obj);
+    }
+    return prodotti;
+  }
+
+  /* ── Salva e vai al negozio ── */
+  function salvaConfig() {
+    var nome  = document.getElementById('shopName').value.trim();
+    var color = document.getElementById('shopColor').value;
+    var logo  = document.getElementById('shopLogo').value.trim();
+    var csv   = document.getElementById('csvContent').value.trim();
+    var errEl = document.getElementById('errorMsg');
+    errEl.style.display = 'none';
+
+    if (!nome) {
+      errEl.textContent = '⚠️ Inserisci il nome del negozio.';
+      errEl.style.display = 'block';
+      document.getElementById('shopName').focus();
+      return;
+    }
+    if (!csv) {
+      errEl.textContent = '⚠️ Carica o incolla il file CSV.';
+      errEl.style.display = 'block';
+      return;
+    }
+    var prodotti = parseCSV(csv);
+    if (prodotti.length === 0) {
+      errEl.textContent = '⚠️ Il CSV sembra vuoto o non valido. Controlla il formato.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    localStorage.setItem('shopConfig',   JSON.stringify({ name: nome, color: color, logo: logo }));
+    localStorage.setItem('shopProducts', JSON.stringify(prodotti));
+    /* non azzeriamo il carrello così rimane tra una sessione e l'altra */
+
+    window.location.href = 'index.html';
+  }
+
+  /* ── Precompila se già configurato ── */
+  window.onload = function() {
+    var c = localStorage.getItem('shopConfig');
+    if (c) {
+      var cfg = JSON.parse(c);
+      document.getElementById('shopName').value  = cfg.name  || '';
+      document.getElementById('shopColor').value = cfg.color || '#2563eb';
+      document.getElementById('colorValue').textContent = cfg.color || '#2563eb';
+      document.documentElement.style.setProperty('--primary', cfg.color || '#2563eb');
+      document.getElementById('shopLogo').value  = cfg.logo  || '';
+      document.getElementById('linkGiaConfig').style.display = 'block';
+    }
+    var p = localStorage.getItem('shopProducts');
+    if (p) {
+      var pr = JSON.parse(p);
+      document.getElementById('csvPreview').textContent = '✅ ' + pr.length + ' prodotti caricati in precedenza';
+    }
+  };
+</script>
+</body>
+</html>

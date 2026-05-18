@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carrello</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- jsPDF — libreria per la generazione di PDF lato client -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+<header id="siteHeader">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <img id="headerLogo" src="" alt="Logo" class="header-logo" style="display:none;">
+    <h1 id="shopTitle">Negozio</h1>
+  </div>
+  <nav>
+    <a href="index.html">📦 Catalogo</a>
+    <a href="ini.html">⚙️ Config</a>
+  </nav>
+</header>
+
+<div class="container">
+  <h2 style="margin-top:24px;margin-bottom:6px;">🛒 Il tuo carrello</h2>
+
+  <!-- Carrello vuoto -->
+  <div id="emptyCart" class="empty-state" style="display:none;">
+    <h3>Il carrello è vuoto</h3>
+    <p style="margin-bottom:24px;">Aggiungi qualcosa dal catalogo!</p>
+    <a href="index.html" class="btn btn-primary">Sfoglia il catalogo</a>
+  </div>
+
+  <!-- Contenuto carrello -->
+  <div id="cartContent" style="display:none;">
+    <table class="cart-table">
+      <thead>
+        <tr>
+          <th>Foto</th>
+          <th>Marca</th>
+          <th>Modello</th>
+          <th>Prezzo unit.</th>
+          <th>Quantità</th>
+          <th>Subtotale</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="cartBody"></tbody>
+    </table>
+
+    <div class="cart-total" id="cartTotal"></div>
+
+    <div class="cart-actions">
+      <button class="btn btn-danger" onclick="svuotaCarrello()">🗑️ Svuota carrello</button>
+      <button class="btn btn-success" onclick="stampaPDF()">📄 Stampa ordine PDF</button>
+    </div>
+
+    <div id="pdfMsg" class="alert alert-success" style="display:none;margin-top:16px;">
+      ✅ PDF generato e scaricato con successo!
+    </div>
+  </div>
+</div>
+
+<script>
+  var nomeNegozio = 'Negozio';
+  var coloreNegozio = '#2563eb';
+
+  window.onload = function() {
+    var configStr = localStorage.getItem('shopConfig');
+    if (configStr) {
+      var cfg = JSON.parse(configStr);
+      nomeNegozio   = cfg.name  || 'Negozio';
+      coloreNegozio = cfg.color || '#2563eb';
+
+      document.title = 'Carrello — ' + nomeNegozio;
+      document.getElementById('shopTitle').textContent = nomeNegozio;
+      document.documentElement.style.setProperty('--primary', coloreNegozio);
+      document.getElementById('siteHeader').style.background = coloreNegozio;
+
+      if (cfg.logo) {
+        var logo = document.getElementById('headerLogo');
+        logo.src = cfg.logo;
+        logo.style.display = 'block';
+      }
+    }
+    renderCarrello();
+  };
+
+  /* ── Disegna il carrello ── */
+  function renderCarrello() {
+    var cart = JSON.parse(localStorage.getItem('shopCart') || '[]');
+
+    if (cart.length === 0) {
+      document.getElementById('emptyCart').style.display  = 'block';
+      document.getElementById('cartContent').style.display = 'none';
+      return;
+    }
+    document.getElementById('emptyCart').style.display  = 'none';
+    document.getElementById('cartContent').style.display = 'block';
+
+    var corpo = document.getElementById('cartBody');
+    corpo.innerHTML = '';
+    var totaleGlobale = 0;
+
+    cart.forEach(function(item, i) {
+      var prezzo    = parseFloat(item.prezzo) || 0;
+      var subtotale = prezzo * (item.qty || 1);
+      totaleGlobale += subtotale;
+
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' +
+          '<img src="' + esc(item.immagine) + '" alt="' + esc(item.modello) + '" ' +
+            'onerror="this.src=\'https://via.placeholder.com/60x60?text=?\'"> ' +
+        '</td>' +
+        '<td>' + esc(item.marca)   + '</td>' +
+        '<td>' + esc(item.modello) + '</td>' +
+        '<td>€ ' + prezzo.toFixed(2) + '</td>' +
+        '<td>' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<button class="qty-btn" onclick="cambiaQty(' + i + ',-1)">−</button>' +
+            '<span style="min-width:28px;text-align:center;font-weight:600;">' + item.qty + '</span>' +
+            '<button class="qty-btn" onclick="cambiaQty(' + i + ',1)">+</button>' +
+          '</div>' +
+        '</td>' +
+        '<td style="font-weight:700;">€ ' + subtotale.toFixed(2) + '</td>' +
+        '<td>' +
+          '<button class="btn btn-danger" style="padding:6px 12px;font-size:0.8rem;" ' +
+            'onclick="rimuoviItem(' + i + ')" title="Rimuovi">✕</button>' +
+        '</td>';
+      corpo.appendChild(tr);
+    });
+
+    document.getElementById('cartTotal').textContent = 'Totale: € ' + totaleGlobale.toFixed(2);
+  }
+
+  /* ── Modifica quantità ── */
+  function cambiaQty(idx, delta) {
+    var cart = JSON.parse(localStorage.getItem('shopCart') || '[]');
+    cart[idx].qty = Math.max(1, (cart[idx].qty || 1) + delta);
+    localStorage.setItem('shopCart', JSON.stringify(cart));
+    renderCarrello();
+  }
+
+  /* ── Rimuovi un articolo ── */
+  function rimuoviItem(idx) {
+    var cart = JSON.parse(localStorage.getItem('shopCart') || '[]');
+    cart.splice(idx, 1);
+    localStorage.setItem('shopCart', JSON.stringify(cart));
+    renderCarrello();
+  }
+
+  /* ── Svuota tutto ── */
+  function svuotaCarrello() {
+    if (confirm('Sei sicuro di voler svuotare il carrello?')) {
+      localStorage.setItem('shopCart', JSON.stringify([]));
+      renderCarrello();
+    }
+  }
+
+  /* ── Genera PDF ordine con jsPDF ── */
+  function stampaPDF() {
+    var cart = JSON.parse(localStorage.getItem('shopCart') || '[]');
+    if (cart.length === 0) return;
+
+    /* jsPDF è disponibile come variabile globale 'jspdf' */
+    var doc = new jspdf.jsPDF();
+
+    var ora = new Date();
+    var dataStr = ora.toLocaleDateString('it-IT') + ' ' +
+                  ora.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+    /* ─── Intestazione ─── */
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text(nomeNegozio, 20, 22);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120);
+    doc.text('Riepilogo ordine — ' + dataStr, 20, 30);
+    doc.setTextColor(0);
+
+    /* Riga separatrice */
+    doc.setDrawColor(200);
+    doc.setLineWidth(0.5);
+    doc.line(20, 35, 190, 35);
+
+    /* ─── Intestazione tabella ─── */
+    var y = 46;
+
+    /* Converti colore hex in RGB */
+    var r = parseInt(coloreNegozio.slice(1, 3), 16) || 37;
+    var g = parseInt(coloreNegozio.slice(3, 5), 16) || 99;
+    var b = parseInt(coloreNegozio.slice(5, 7), 16) || 235;
+
+    doc.setFillColor(r, g, b);
+    doc.rect(20, y - 7, 170, 10, 'F');
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255);
+    doc.text('Marca',     22, y);
+    doc.text('Modello',   62, y);
+    doc.text('Prezzo',   115, y);
+    doc.text('Qta',      142, y);
+    doc.text('Subtotale', 158, y);
+    doc.setTextColor(0);
+
+    y += 12;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+
+    var totaleGlobale = 0;
+
+    cart.forEach(function(item, idx) {
+      var prezzo    = parseFloat(item.prezzo) || 0;
+      var subtotale = prezzo * (item.qty || 1);
+      totaleGlobale += subtotale;
+
+      /* Righe alternate */
+      if (idx % 2 === 0) {
+        doc.setFillColor(245, 247, 250);
+        doc.rect(20, y - 6, 170, 10, 'F');
+      }
+
+      /* Tronca testi lunghi */
+      var marca   = String(item.marca   || '').substring(0, 16);
+      var modello = String(item.modello || '').substring(0, 24);
+
+      doc.text(marca,                     22, y);
+      doc.text(modello,                   62, y);
+      doc.text('EUR ' + prezzo.toFixed(2),   115, y);
+      doc.text(String(item.qty || 1),    144, y);
+      doc.text('EUR ' + subtotale.toFixed(2), 158, y);
+
+      y += 12;
+
+      /* Nuova pagina se necessario */
+      if (y > 268) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+
+    /* ─── Totale ─── */
+    doc.setDrawColor(180);
+    doc.line(20, y, 190, y);
+    y += 10;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('TOTALE ORDINE:  EUR ' + totaleGlobale.toFixed(2), 20, y);
+
+    /* ─── Piè di pagina ─── */
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(160);
+    doc.text(
+      'Documento generato il ' + dataStr + ' — ' + nomeNegozio,
+      20, 287
+    );
+
+    /* Salva il PDF */
+    var nomeFile = 'ordine-' + nomeNegozio.replace(/\s+/g, '-').toLowerCase() + '.pdf';
+    doc.save(nomeFile);
+
+    /* Messaggio conferma */
+    document.getElementById('pdfMsg').style.display = 'block';
+    setTimeout(function() {
+      document.getElementById('pdfMsg').style.display = 'none';
+    }, 4000);
+  }
+
+  function esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>
